@@ -1,4 +1,13 @@
-export { createTrafficStore, normalizePath, shouldIgnore, recordRequest, getTrafficSnapshot } from './recorder';
-export { transformEntry, transformEntries, redactHeaders, redactBodyFields, truncateBody } from './transformer';
-export type { TransformOptions } from './transformer';
-export type { TrafficEntry, TrafficStore, TrafficSnapshot } from './types';
+export * from './types';
+export * from './recorder';
+export * from './filter';
+export * from './deduplicator';
+export * from './sampler';
+export * from './aggregator';
+export * from './replay';
+export * from './exporter';
+export * from './classifier';
+export * from './stats';
+export * from './transformer';
+export * from './matcher';
+export * from './scorer';
