@@ -15,6 +15,14 @@ describe('inferType', () => {
     expect(inferType(42)).toBe('number');
     expect(inferType(true)).toBe('boolean');
   });
+
+  it('returns object for plain objects', () => {
+    expect(inferType({ key: 'value' })).toBe('object');
+  });
+
+  it('returns undefined for undefined values', () => {
+    expect(inferType(undefined)).toBe('undefined');
+  });
 });
 
 describe('inferSchema', () => {
@@ -34,6 +42,13 @@ describe('inferSchema', () => {
   it('infers schema for primitives', () => {
     expect(inferSchema('test')).toEqual({ type: 'string', example: 'test' });
     expect(inferSchema(99)).toEqual({ type: 'number', example: 99 });
+  });
+
+  it('infers schema for nested objects', () => {
+    const schema = inferSchema({ user: { name: 'Alice', age: 30 } });
+    expect(schema.type).toBe('object');
+    expect(schema.properties?.user.type).toBe('object');
+    expect(schema.properties?.user.properties?.name.type).toBe('string');
   });
 });
 
@@ -79,6 +94,12 @@ describe('inferFromTrafficEntries', () => {
   it('handles entries without bodies', () => {
     const entries = [mockEntry(undefined, undefined)];
     const { requestBody, responseBody } = inferFromTrafficEntries(entries);
+    expect(requestBody).toBeUndefined();
+    expect(responseBody).toBeUndefined();
+  });
+
+  it('returns undefined for an empty entries array', () => {
+    const { requestBody, responseBody } = inferFromTrafficEntries([]);
     expect(requestBody).toBeUndefined();
     expect(responseBody).toBeUndefined();
   });
