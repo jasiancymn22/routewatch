@@ -63,6 +63,16 @@ describe('createExportWatcher', () => {
     watcher.stop();
   });
 
+  it('passes correct store and options to exportSnapshot on interval tick', () => {
+    const store = makeMockStore();
+    const options = { format: 'json' as const, outputPath: 'out.json', intervalMs: 1000 };
+    const watcher = createExportWatcher(store, options);
+    watcher.start();
+    jest.advanceTimersByTime(1000);
+    expect(exportSpy).toHaveBeenCalledWith(store, options);
+    watcher.stop();
+  });
+
   it('calls exportSnapshot on stop (final flush)', () => {
     const store = makeMockStore();
     const watcher = createExportWatcher(store, {
