@@ -56,6 +56,10 @@ export function mergeSchemas(a: InferredSchema, b: InferredSchema): InferredSche
     return { type: 'object', properties: merged };
   }
 
+  if (a.type === 'array' && a.items && b.items) {
+    return { type: 'array', items: mergeSchemas(a.items, b.items) as SchemaProperty };
+  }
+
   return a;
 }
 
