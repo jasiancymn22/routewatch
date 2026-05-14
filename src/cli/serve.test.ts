@@ -67,4 +67,13 @@ describe('createDocsServer', () => {
       done();
     });
   });
+
+  it('returns 404 for unknown paths', (done) => {
+    server = createDocsServer({ port: 14043, format: 'json' });
+    server.once('listening', async () => {
+      const res = await getJson(14043, '/unknown-route');
+      expect(res.status).toBe(404);
+      done();
+    });
+  });
 });
