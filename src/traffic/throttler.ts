@@ -64,3 +64,23 @@ export function getThrottleCounts(
   }
   return result;
 }
+
+/**
+ * Removes all bucket entries whose time window has already expired.
+ * Useful for periodic cleanup to prevent unbounded memory growth
+ * when many distinct route+method combinations are tracked.
+ */
+export function pruneExpiredBuckets(
+  store: ThrottleStore,
+  now: number = Date.now(),
+  options: ThrottleOptions = DEFAULT_OPTIONS
+): number {
+  let pruned = 0;
+  for (const [key, bucket] of store.entries()) {
+    if (now - bucket.windowStart >= options.windowMs) {
+      store.delete(key);
+      pruned += 1;
+    }
+  }
+  return pruned;
+}
