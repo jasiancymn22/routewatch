@@ -1,26 +1,33 @@
-import { OpenAPIObject, PathItemObject, OperationObject } from 'openapi3-ts';
+import { OpenAPIObject } from 'openapi3-ts';
 import { TrafficEntry } from '../traffic/types';
-import { retryStats, groupRetries } from '../traffic/retry';
+import { detectRetries, retryStats } from '../traffic/retry';
 
-export interface RetryExtension {
-  'x-retry-count': number;
-  'x-retry-success-rate': number;
-  'x-retry-detected': boolean;
+export interface RetryExtensionMap {
+  [routeKey: string]: {
+    'x-retry-count': number;
+    'x-retry-avg-delay-ms': number;
+    'x-retry-success-rate'?: number;
+  };
 }
 
-export function buildRetryExtensions(
-  entries: TrafficEntry[],
-  windowMs = 5000
-): Record<string, RetryExtension> {
-  const stats = retryStats(entries, windowMs);
-  const result: Record<string, RetryExtension> = {};
+export function buildRetryExtensions(entries: TrafficEntry[]): RetryExtensionMap {
+  const groups = detectRetries(entries);
+  const result: RetryExtensionMap = {};
 
-  for (const [key, s] of Object.entries(stats)) {
+  for (const [key, retryGroups] of Object.entries(groups)) {
+    if (!retryGroups || retryGroups.length === 0) continue;
+
+    const stats = retryStats(retryGroups);
+    if (stats.totalRetries === 0) continue;
+
     result[key] = {
-      'x-retry-count': s.retries,
-      'x-retry-success-rate': parseFloat(s.successRate.toFixed(3)),
-      'x-retry-detected': s.retries > 0,
+      'x-retry-count': stats.totalRetries,
+      'x-retry-avg-delay-ms': Math.round(stats.avgDelay),
     };
+
+    if (stats.successRate !== undefined) {
+      result[key]['x-retry-success-rate'] = parseFloat(stats.successRate.toFixed(3));
+    }
   }
 
   return result;
@@ -28,35 +35,28 @@ export function buildRetryExtensions(
 
 export function applyRetriesToDocument(
   doc: OpenAPIObject,
-  entries: TrafficEntry[],
-  windowMs = 5000
+  extensions: RetryExtensionMap
 ): OpenAPIObject {
-  const extensions = buildRetryExtensions(entries, windowMs);
+  if (!doc.paths || Object.keys(extensions).length === 0) return doc;
 
-  if (!doc.paths) return doc;
+  const updatedPaths = { ...doc.paths };
 
-  const updatedPaths: Record<string, PathItemObject> = {};
+  for (const [routeKey, ext] of Object.entries(extensions)) {
+    const spaceIdx = routeKey.indexOf(' ');
+    if (spaceIdx === -1) continue;
 
-  for (const [pathKey, pathItem] of Object.entries(doc.paths)) {
-    const updatedPath: PathItemObject = { ...pathItem };
-    const methods = ['get', 'post', 'put', 'patch', 'delete', 'options', 'head'] as const;
+    const method = routeKey.slice(0, spaceIdx).toLowerCase();
+    const path = routeKey.slice(spaceIdx + 1);
 
-    for (const method of methods) {
-      const operation = (pathItem as Record<string, unknown>)[method] as OperationObject | undefined;
-      if (!operation) continue;
+    if (!updatedPaths[path] || !updatedPaths[path][method]) continue;
 
-      const extKey = `${method.toUpperCase()}:${pathKey}`;
-      const ext = extensions[extKey];
-
-      if (ext) {
-        (updatedPath as Record<string, unknown>)[method] = {
-          ...operation,
-          ...ext,
-        };
-      }
-    }
-
-    updatedPaths[pathKey] = updatedPath;
+    updatedPaths[path] = {
+      ...updatedPaths[path],
+      [method]: {
+        ...updatedPaths[path][method],
+        ...ext,
+      },
+    };
   }
 
   return { ...doc, paths: updatedPaths };
