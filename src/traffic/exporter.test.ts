@@ -42,6 +42,16 @@ describe('serializeEntries', () => {
     expect(lines).toHaveLength(2);
     expect(JSON.parse(lines[0]).path).toBe('/api/users');
   });
+
+  it('serializes an empty array to an empty JSON array', () => {
+    const result = serializeEntries([]);
+    expect(JSON.parse(result)).toEqual([]);
+  });
+
+  it('serializes an empty array to empty string in ndjson', () => {
+    const result = serializeEntries([], { format: 'ndjson' });
+    expect(result).toBe('');
+  });
 });
 
 describe('deserializeEntries', () => {
@@ -84,5 +94,10 @@ describe('serializeToCSV', () => {
     const entry = makeEntry();
     const row = entryToCSVRow(entry);
     expect(row).toBe(`GET,/api/users,200,1700000000000`);
+  });
+
+  it('returns only header row for empty entries', () => {
+    const result = serializeToCSV([]);
+    expect(result).toBe(entriestoCSVHeader());
   });
 });
